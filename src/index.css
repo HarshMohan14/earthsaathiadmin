@@ -28,4 +28,27 @@
   .line-clamp-2 { @apply overflow-hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .line-clamp-4 { @apply overflow-hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
   .line-clamp-6 { @apply overflow-hidden; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; }
+  
+  /* Custom Scrollbar Styles */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #64748b transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #64748b;
+    border-radius: 3px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: #475569;
+  }
 }
