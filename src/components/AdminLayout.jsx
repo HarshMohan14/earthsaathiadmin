@@ -12,7 +12,9 @@ import {
   X, 
   LogOut,
   Bell,
-  Search
+  Search,
+  Users2,
+  GraduationCap
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -27,6 +29,8 @@ const AdminLayout = () => {
     { name: 'Users', href: '/users', icon: Users },
     { name: 'Projects', href: '/projects', icon: FolderOpen },
     { name: 'Resources', href: '/resources', icon: FileText },
+    { name: 'Team', href: '/team', icon: Users2 },
+    { name: 'Advisors', href: '/advisors', icon: GraduationCap },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];

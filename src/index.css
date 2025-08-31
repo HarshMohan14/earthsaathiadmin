@@ -26,4 +26,6 @@
   .text-gradient { @apply bg-gradient-to-r from-primary-500 to-secondary-600 bg-clip-text text-transparent; }
   .bg-gradient-primary { @apply bg-gradient-to-r from-primary-500 to-secondary-600; }
   .line-clamp-2 { @apply overflow-hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .line-clamp-4 { @apply overflow-hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+  .line-clamp-6 { @apply overflow-hidden; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; }
 }

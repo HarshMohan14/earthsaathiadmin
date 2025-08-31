@@ -6,6 +6,8 @@ import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Projects from './pages/Projects';
 import Resources from './pages/Resources';
+import Team from './pages/Team';
+import Advisors from './pages/Advisors';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
@@ -36,6 +38,8 @@ const AppRoutes = () => {
         <Route path="users" element={<Users />} />
         <Route path="projects" element={<Projects />} />
         <Route path="resources" element={<Resources />} />
+        <Route path="team" element={<Team />} />
+        <Route path="advisors" element={<Advisors />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="settings" element={<Settings />} />
       </Route>
