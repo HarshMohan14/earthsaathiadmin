@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { font-family: 'Open Sans', sans-serif; }
+  body { @apply bg-gray-50 text-gray-900; }
+  h1, h2, h3, h4, h5, h6 { font-family: 'Open Sans', sans-serif; }
+  .font-poppins { font-family: 'Poppins', sans-serif; }
+  .font-opensans { font-family: 'Open Sans', sans-serif; }
+}
+
+@layer components {
+  .btn-primary { @apply bg-gradient-to-r from-primary-500 to-secondary-600 text-white px-4 py-2 rounded-lg font-medium hover:from-primary-600 hover:to-secondary-700 transition-all duration-200 shadow-md hover:shadow-lg; }
+  .btn-secondary { @apply bg-white text-secondary-600 border-2 border-secondary-600 px-4 py-2 rounded-lg font-medium hover:bg-secondary-600 hover:text-white transition-all duration-200; }
+  .card { @apply bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border border-gray-100; }
+  .sidebar-item { @apply flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg transition-all duration-200 cursor-pointer; }
+  .sidebar-item.active { @apply bg-primary-100 text-primary-600 border-r-4 border-primary-500; }
+  .input-field { @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200; }
+}
+
+@layer utilities {
+  .text-gradient { @apply bg-gradient-to-r from-primary-500 to-secondary-600 bg-clip-text text-transparent; }
+  .bg-gradient-primary { @apply bg-gradient-to-r from-primary-500 to-secondary-600; }
+}
