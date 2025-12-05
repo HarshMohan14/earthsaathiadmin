@@ -1,52 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit, Trash2, Mail, X, Save, Eye, Send, Calendar, User } from 'lucide-react';
+import { Plus, Edit, Trash2, Mail, X, Save, Eye, Send, Calendar, User, Loader2 } from 'lucide-react';
+import { newslettersAPI, newsletterSubscribersAPI } from '../utils/api';
 
 const Newsletter = () => {
-  const [newsletters, setNewsletters] = useState([
-    {
-      id: 1,
-      title: "EarthSaathi's Latest Breakthrough in Biogas Technology",
-      subject: "Revolutionary CNS Biogas Solution Launch",
-      content: "We're excited to announce our latest breakthrough in sustainable energy technology. Our CNS biogas solution has been successfully implemented at a large-scale cashew processing plant in Tanzania, transforming onsite organic waste into a self-contained energy hub. This innovative approach not only reduces disposal costs and environmental impact but also offsets the plant's energy use, making operations more circular, resilient, and cost-effective.",
-      excerpt: "Revolutionary CNS biogas solution transforms waste into energy at industrial scale",
-      status: "published", // draft, published, scheduled
-      publishDate: "2024-01-15",
-      author: "Dr. Shaurya Mohan",
-      subscribers: 1250,
-      openRate: 68.5,
-      clickRate: 23.2,
-      tags: ["biogas", "sustainability", "technology", "energy"]
-    },
-    {
-      id: 2,
-      title: "Sustainable Aviation Fuel: The Future of Clean Aviation",
-      subject: "SAF Innovation and Market Opportunities",
-      content: "The aviation industry is at a critical juncture in its journey toward sustainability. Our research team has been working on Sustainable Aviation Fuel (SAF) solutions that could revolutionize how we think about air travel. With increasing pressure to reduce carbon emissions and the growing demand for eco-friendly alternatives, SAF presents an unprecedented opportunity for the biofuels sector.",
-      excerpt: "Exploring the future of Sustainable Aviation Fuel and market opportunities",
-      status: "draft",
-      publishDate: null,
-      author: "Dr. Namrata",
-      subscribers: 1250,
-      openRate: 0,
-      clickRate: 0,
-      tags: ["aviation", "SAF", "biofuels", "research"]
-    },
-    {
-      id: 3,
-      title: "Carbon Capture Technology: NS-MAX™ Innovation",
-      subject: "Breakthrough in Carbon Capture and Storage",
-      content: "Our NS-MAX™ technology represents a significant advancement in carbon capture and storage solutions. Developed through years of research at ICT Mumbai, this innovative approach combines cutting-edge chemistry with practical industrial applications. The technology has shown remarkable efficiency in gas purification and offers a cost-effective solution for industries looking to reduce their carbon footprint.",
-      excerpt: "NS-MAX™ technology advances carbon capture with practical industrial applications",
-      status: "scheduled",
-      publishDate: "2024-02-01",
-      author: "Prof. P.D. Vaidya",
-      subscribers: 1250,
-      openRate: 0,
-      clickRate: 0,
-      tags: ["carbon capture", "NS-MAX", "technology", "industrial"]
-    }
-  ]);
+  const [newsletters, setNewsletters] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [subscriberCount, setSubscriberCount] = useState(0);
+  const [sendingNewsletter, setSendingNewsletter] = useState(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNewsletter, setEditingNewsletter] = useState(null);
@@ -62,6 +24,50 @@ const Newsletter = () => {
   });
 
   const [tagInput, setTagInput] = useState('');
+
+  useEffect(() => {
+    fetchNewsletters();
+    fetchSubscriberCount();
+  }, []);
+
+  const fetchNewsletters = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await newslettersAPI.getAll();
+      setNewsletters(data);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching newsletters:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSubscriberCount = async () => {
+    try {
+      const result = await newsletterSubscribersAPI.getCount();
+      setSubscriberCount(result.count);
+    } catch (err) {
+      console.error('Error fetching subscriber count:', err);
+    }
+  };
+
+  const handleSendNewsletter = async (newsletterId) => {
+    if (!window.confirm('Are you sure you want to send this newsletter to all subscribers?')) {
+      return;
+    }
+
+    try {
+      setSendingNewsletter(newsletterId);
+      const result = await newslettersAPI.send(newsletterId);
+      alert(`Newsletter sent successfully!\nSent: ${result.sent}\nFailed: ${result.failed || 0}`);
+    } catch (err) {
+      alert('Error sending newsletter: ' + err.message);
+    } finally {
+      setSendingNewsletter(null);
+    }
+  };
 
   const handleAddNew = () => {
     setEditingNewsletter(null);
@@ -95,43 +101,52 @@ const Newsletter = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this newsletter?')) {
-      setNewsletters(newsletters.filter(newsletter => newsletter.id !== id));
+      try {
+        await newslettersAPI.delete(id);
+        setNewsletters(newsletters.filter(newsletter => newsletter._id !== id));
+      } catch (err) {
+        alert('Error deleting newsletter: ' + err.message);
+      }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingNewsletter) {
-      // Update existing newsletter
-      setNewsletters(newsletters.map(newsletter => 
-        newsletter.id === editingNewsletter.id 
-          ? { ...newsletter, ...formData }
-          : newsletter
-      ));
-    } else {
-      // Add new newsletter
-      const newNewsletter = {
-        id: Date.now(),
-        ...formData,
-        subscribers: 1250,
-        openRate: 0,
-        clickRate: 0
-      };
-      setNewsletters([...newsletters, newNewsletter]);
+    try {
+      let savedNewsletter;
+      if (editingNewsletter) {
+        // Update existing newsletter
+        savedNewsletter = await newslettersAPI.update(editingNewsletter._id, formData);
+        setNewsletters(newsletters.map(newsletter => 
+          newsletter._id === editingNewsletter._id ? savedNewsletter : newsletter
+        ));
+      } else {
+        // Add new newsletter
+        const newNewsletterData = {
+          ...formData,
+          subscribers: 1250,
+          openRate: 0,
+          clickRate: 0
+        };
+        savedNewsletter = await newslettersAPI.create(newNewsletterData);
+        setNewsletters([...newsletters, savedNewsletter]);
+      }
+      setIsModalOpen(false);
+      setFormData({
+        title: '',
+        subject: '',
+        content: '',
+        excerpt: '',
+        status: 'draft',
+        publishDate: '',
+        author: '',
+        tags: []
+      });
+    } catch (err) {
+      alert('Error saving newsletter: ' + err.message);
     }
-    setIsModalOpen(false);
-    setFormData({
-      title: '',
-      subject: '',
-      content: '',
-      excerpt: '',
-      status: 'draft',
-      publishDate: '',
-      author: '',
-      tags: []
-    });
   };
 
   const handleInputChange = (e) => {
@@ -255,21 +270,43 @@ const Newsletter = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Subscribers</p>
-              <p className="text-2xl font-bold text-gray-900">1,250</p>
+              <p className="text-2xl font-bold text-gray-900">{subscriberCount.toLocaleString()}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Newsletters List */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Newsletter Campaigns</h2>
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+          <span className="ml-2 text-gray-600">Loading newsletters...</span>
         </div>
-        <div className="divide-y divide-gray-200">
-          {newsletters.map((newsletter) => (
-            <motion.div
-              key={newsletter.id}
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-red-800">Error: {error}</p>
+          <button
+            onClick={fetchNewsletters}
+            className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Newsletters List */}
+      {!loading && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Newsletter Campaigns</h2>
+          </div>
+          <div className="divide-y divide-gray-200">
+            {newsletters.map((newsletter) => (
+              <motion.div
+                key={newsletter._id || newsletter.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="p-6 hover:bg-gray-50 transition-colors duration-200"
@@ -303,7 +340,7 @@ const Newsletter = () => {
                         <span>{new Date(newsletter.publishDate).toLocaleDateString()}</span>
                       </span>
                     )}
-                    <span>Subscribers: {newsletter.subscribers.toLocaleString()}</span>
+                    <span>Subscribers: {subscriberCount.toLocaleString()}</span>
                     {newsletter.status === 'published' && (
                       <>
                         <span>Open Rate: {newsletter.openRate}%</span>
@@ -325,6 +362,20 @@ const Newsletter = () => {
                 </div>
                 
                 <div className="flex items-center space-x-2 ml-4">
+                  {newsletter.status === 'published' && (
+                    <button
+                      onClick={() => handleSendNewsletter(newsletter._id || newsletter.id)}
+                      disabled={sendingNewsletter === (newsletter._id || newsletter.id)}
+                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
+                      title="Send Newsletter to Subscribers"
+                    >
+                      {sendingNewsletter === (newsletter._id || newsletter.id) ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={() => handleEdit(newsletter)}
                     className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors duration-200"
@@ -333,7 +384,7 @@ const Newsletter = () => {
                     <Edit className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleDelete(newsletter.id)}
+                    onClick={() => handleDelete(newsletter._id || newsletter.id)}
                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
                     title="Delete Newsletter"
                   >
@@ -345,6 +396,7 @@ const Newsletter = () => {
           ))}
         </div>
       </div>
+      )}
 
       {/* Modal */}
       {isModalOpen && (

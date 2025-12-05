@@ -1,24 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit, Trash2, User, X, Save } from 'lucide-react';
+import { Plus, Edit, Trash2, User, X, Save, Loader2 } from 'lucide-react';
+import { advisorsAPI } from '../utils/api';
 
 const Advisors = () => {
-  const [advisors, setAdvisors] = useState([
-    {
-      id: 1,
-      name: "Wahid A. Kamalian",
-      title: "Co-Founder & Managing Partner, Amaly Legacy",
-      description: "EarthSaathi's groundbreaking CNS biogas solution is a true game-changer in sustainable energy, especially at industrial scale. We saw their solution expertly designed and customized for a large-scale cashew processing plant project in Tanzania, where it transforms onsite organic waste into a self-contained energy hub. This not only reduces disposal costs and environmental impact-which is critical for the procurement divisions of large clients seeking to reduce their scope 3 emissions-but also offsets the plant's energy use, making operations more circular, resilient, and cost-effective.",
-      imageUrl: "/Wahid A. Kamalian.jpg",
-    },
-    {
-      id: 2,
-      name: "Prof. P.D. Vaidya",
-      title: "Professor at ICT Mumbai",
-      description: "Prof. P.D. Vaidya has been closely involved in EarthSaathi's journey since its early days. As a senior professor at ICT Mumbai, he mentored both co-founders during their PhDs in carbon capture and solvent development. With deep expertise in gas purification and sustainable chemistry, he played a key role in shaping the scientific thinking behind EarthSaathi's NS-MAX™ technology. He often highlights the founders' rare ability to blend research with real-world impact taking complex chemistry and turning it into a solution that can work at scale. His continued guidance ensures that the team stays grounded in science.",
-      imageUrl: "/Professor.jpg",
-    },
-  ]);
+  const [advisors, setAdvisors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAdvisor, setEditingAdvisor] = useState(null);
@@ -28,6 +16,24 @@ const Advisors = () => {
     description: '',
     imageUrl: '',
   });
+
+  useEffect(() => {
+    fetchAdvisors();
+  }, []);
+
+  const fetchAdvisors = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await advisorsAPI.getAll();
+      setAdvisors(data);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching advisors:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddNew = () => {
     setEditingAdvisor(null);
@@ -51,36 +57,40 @@ const Advisors = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this advisor?')) {
-      setAdvisors(advisors.filter(advisor => advisor.id !== id));
+      try {
+        await advisorsAPI.delete(id);
+        setAdvisors(advisors.filter(advisor => advisor._id !== id));
+      } catch (err) {
+        alert('Error deleting advisor: ' + err.message);
+      }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingAdvisor) {
-      // Update existing advisor
-      setAdvisors(advisors.map(advisor => 
-        advisor.id === editingAdvisor.id 
-          ? { ...advisor, ...formData }
-          : advisor
-      ));
-    } else {
-      // Add new advisor
-      const newAdvisor = {
-        id: Date.now(),
-        ...formData,
-      };
-      setAdvisors([...advisors, newAdvisor]);
+    try {
+      let savedAdvisor;
+      if (editingAdvisor) {
+        savedAdvisor = await advisorsAPI.update(editingAdvisor._id, formData);
+        setAdvisors(advisors.map(advisor => 
+          advisor._id === editingAdvisor._id ? savedAdvisor : advisor
+        ));
+      } else {
+        savedAdvisor = await advisorsAPI.create(formData);
+        setAdvisors([...advisors, savedAdvisor]);
+      }
+      setIsModalOpen(false);
+      setFormData({
+        name: '',
+        title: '',
+        description: '',
+        imageUrl: '',
+      });
+    } catch (err) {
+      alert('Error saving advisor: ' + err.message);
     }
-    setIsModalOpen(false);
-    setFormData({
-      name: '',
-      title: '',
-      description: '',
-      imageUrl: '',
-    });
   };
 
   const handleInputChange = (e) => {
@@ -108,11 +118,33 @@ const Advisors = () => {
         </button>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+          <span className="ml-2 text-gray-600">Loading advisors...</span>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-red-800">Error: {error}</p>
+          <button
+            onClick={fetchAdvisors}
+            className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Advisors Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {advisors.map((advisor) => (
-          <motion.div
-            key={advisor.id}
+      {!loading && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {advisors.map((advisor) => (
+            <motion.div
+              key={advisor._id || advisor.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200"
@@ -140,7 +172,7 @@ const Advisors = () => {
                   <Edit className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => handleDelete(advisor.id)}
+                  onClick={() => handleDelete(advisor._id || advisor.id)}
                   className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -150,6 +182,7 @@ const Advisors = () => {
           </motion.div>
         ))}
       </div>
+      )}
 
       {/* Modal */}
       {isModalOpen && (

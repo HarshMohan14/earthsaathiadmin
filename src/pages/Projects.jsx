@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   FolderOpen, 
@@ -18,8 +18,10 @@ import {
   Eye,
   X,
   Save,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Loader2
 } from 'lucide-react';
+import { projectsAPI } from '../utils/api';
 
 const Projects = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -28,77 +30,29 @@ const Projects = () => {
   const [editingProject, setEditingProject] = useState(null);
   const [viewingProject, setViewingProject] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Using the provided mock project data structure
-  const [projects, setProjects] = useState([
-    {
-      id: 1,
-      title: "Enhancing Methane Purity at Cattle Research Institute",
-      subtitle: "Ongoing Project",
-      imageUrl: "/Project1.jpg",
-      sections: [
-        {
-          title: "Client Challenge",
-          content: "The Cattle Research Institute in Pune operates a biogas plant that currently achieves methane purity levels of around 80–85% using a traditional water scrubbing system. While effective to a degree, the existing setup has limitations in energy efficiency and output quality, making it less suitable for high-value clean energy applications."
-        },
-        {
-          title: "Our Approach",
-          content: "EarthSaathi is collaborating with the institute on a large-scale pilot to integrate our proprietary NS-MAX™ solvent technology into their biogas purification process. The goal is to enhance methane purity up to 99%, while also reducing energy consumption and operational inefficiencies."
-        },
-        {
-          title: "Project Highlights",
-          content: [
-            "Focused on improving methane quality for better energy utilization",
-            "Collaboration with a Japanese biogas plant for additional R&D support",
-            "Designed for energy savings and operational efficiency"
-          ]
-        },
-        {
-          title: "Status",
-          content: "The project is currently in the pilot implementation phase. Early results are promising, and ongoing testing will help validate improvements in gas quality, energy use, and system scalability."
-        },
-        {
-          title: "Why It Matters",
-          content: "This pilot represents a significant step in demonstrating how innovative solvent technologies can upgrade existing biogas systems, making them more sustainable and impactful for rural and research-based energy initiatives."
-        }
-      ]
-    },
-    {
-      id: 2,
-      title: "Cashew Waste to Energy - Pilot in Africa",
-      subtitle: "Ongoing Project",
-      imageUrl: "/Project2.jpg",
-      sections: [
-        {
-          title: "Client Challenge",
-          content: "A new cashew processing plant in Africa was looking for a sustainable way to meet its electricity demands while managing the significant organic waste generated from processing. Traditional power sources were either unreliable or costly, and waste disposal posed an environmental burden."
-        },
-        {
-          title: "Our Approach",
-          content: "EarthSaathi designed a proof-of-concept (POC) biogas solution that turns cashew waste into clean energy. The goal is to meet at least 19% of the plant's daily electricity needs by converting organic waste into biomethane using advanced digestion and purification technology."
-        },
-        {
-          title: "Project Components",
-          content: [
-            "Biogas system setup: digesters, agitators, membranes, and H₂S control",
-            "External biomethane storage tanks (3000m³ x 2)",
-            "CHP-enabled electrical generators",
-            "Biogas purification using NS-MAX™ solvent",
-            "Integration of fertilizer processing for digestate reuse",
-            "Full installation and implementation support"
-          ]
-        },
-        {
-          title: "Status",
-          content: "The pilot is in the system design and component selection stage. Once operational, it will serve as a blueprint for other agro-processing plants across Africa to adopt circular energy solutions."
-        },
-        {
-          title: "Why It Matters",
-          content: "This project showcases how agricultural waste can be converted into power-reducing energy dependence, cutting emissions, and improving overall sustainability in rural industries. It's a strong example of EarthSaathi's mission to build low-carbon solutions tailored to real-world challenges."
-        }
-      ]
+  const [projects, setProjects] = useState([]);
+
+  // Fetch projects from API
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await projectsAPI.getAll();
+      setProjects(data);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching projects:', err);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -133,7 +87,6 @@ const Projects = () => {
 
   const handleCreateProject = () => {
     setEditingProject({
-      id: Date.now(),
       title: '',
       subtitle: '',
       imageUrl: '',
@@ -157,27 +110,39 @@ const Projects = () => {
     setViewingProject(project);
   };
 
-  const handleDeleteProject = (projectId) => {
-    setProjects(projects.filter(p => p.id !== projectId));
-    setShowDeleteConfirm(null);
+  const handleDeleteProject = async (projectId) => {
+    try {
+      await projectsAPI.delete(projectId);
+      setProjects(projects.filter(p => p._id !== projectId));
+      setShowDeleteConfirm(null);
+    } catch (err) {
+      alert('Error deleting project: ' + err.message);
+    }
   };
 
-  const handleSaveProject = () => {
+  const handleSaveProject = async () => {
     if (editingProject.title.trim() === '') {
       alert('Project title is required');
       return;
     }
 
-    if (editingProject.id === Date.now()) {
-      // New project
-      setProjects([...projects, editingProject]);
-    } else {
-      // Update existing project
-      setProjects(projects.map(p => p.id === editingProject.id ? editingProject : p));
+    try {
+      let savedProject;
+      if (editingProject._id) {
+        // Update existing project
+        savedProject = await projectsAPI.update(editingProject._id, editingProject);
+        setProjects(projects.map(p => p._id === editingProject._id ? savedProject : p));
+      } else {
+        // New project
+        savedProject = await projectsAPI.create(editingProject);
+        setProjects([...projects, savedProject]);
+      }
+      
+      setShowModal(false);
+      setEditingProject(null);
+    } catch (err) {
+      alert('Error saving project: ' + err.message);
     }
-    
-    setShowModal(false);
-    setEditingProject(null);
   };
 
   const handleSectionChange = (sectionIndex, field, value) => {
@@ -260,114 +225,141 @@ const Projects = () => {
         </div>
       </div>
 
-      {/* Projects Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredProjects.map((project, index) => (
-          <motion.div
-            key={project.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="card p-6 hover:shadow-lg transition-all duration-200"
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+          <span className="ml-2 text-gray-600">Loading projects...</span>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-red-800">Error: {error}</p>
+          <button
+            onClick={fetchProjects}
+            className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
           >
-            {/* Project Header */}
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-2">{project.title}</h3>
-                <p className="text-sm text-gray-600">{project.subtitle}</p>
-              </div>
-              <button className="p-1 text-gray-400 hover:text-gray-600">
-                <MoreVertical className="w-4 h-4" />
-              </button>
-            </div>
+            Retry
+          </button>
+        </div>
+      )}
 
-            {/* Status */}
-            <div className="mb-4">
-              <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(project.subtitle)}`}>
-                {getStatusIcon(project.subtitle)}
-                <span className="ml-1">{project.subtitle}</span>
-              </span>
-            </div>
-
-            {/* Project Image */}
-            <div className="mb-4">
-              <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
-                <ImageIcon className="w-8 h-8 text-gray-400" />
-              </div>
-            </div>
-
-            {/* Project Sections Preview */}
-            <div className="mb-4 space-y-2">
-              {project.sections.slice(0, 2).map((section, idx) => (
-                <div key={idx} className="text-sm">
-                  <span className="font-medium text-gray-700">{section.title}:</span>
-                  <p className="text-gray-600 line-clamp-2">
-                    {Array.isArray(section.content) 
-                      ? section.content.join(', ')
-                      : section.content
-                    }
-                  </p>
-                </div>
-              ))}
-              {project.sections.length > 2 && (
-                <p className="text-xs text-gray-500">+{project.sections.length - 2} more sections</p>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-              <div className="flex items-center space-x-2">
-                <button 
-                  onClick={() => handleViewProject(project)}
-                  className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                  title="View Project"
+      {/* Projects Grid */}
+      {!loading && (
+        <>
+          {filteredProjects.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredProjects.map((project, index) => (
+                <motion.div
+                  key={project._id || project.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="card p-6 hover:shadow-lg transition-all duration-200"
                 >
-                  <Eye className="w-4 h-4" />
-                </button>
-                <button 
-                  onClick={() => handleEditProject(project)}
-                  className="p-2 text-gray-400 hover:text-green-600 transition-colors"
-                  title="Edit Project"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button 
-                  onClick={() => setShowDeleteConfirm(project.id)}
-                  className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                  title="Delete Project"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-              <button 
-                onClick={() => handleViewProject(project)}
-                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-              >
-                View Details
-              </button>
-            </div>
-          </motion.div>
+                  {/* Project Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-2">{project.title}</h3>
+                      <p className="text-sm text-gray-600">{project.subtitle}</p>
+                    </div>
+                    <button className="p-1 text-gray-400 hover:text-gray-600">
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Status */}
+                  <div className="mb-4">
+                    <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(project.subtitle)}`}>
+                      {getStatusIcon(project.subtitle)}
+                      <span className="ml-1">{project.subtitle}</span>
+                    </span>
+                  </div>
+
+                  {/* Project Image */}
+                  <div className="mb-4">
+                    <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                      <ImageIcon className="w-8 h-8 text-gray-400" />
+                    </div>
+                  </div>
+
+                  {/* Project Sections Preview */}
+                  <div className="mb-4 space-y-2">
+                    {project.sections.slice(0, 2).map((section, idx) => (
+                      <div key={idx} className="text-sm">
+                        <span className="font-medium text-gray-700">{section.title}:</span>
+                        <p className="text-gray-600 line-clamp-2">
+                          {Array.isArray(section.content) 
+                            ? section.content.join(', ')
+                            : section.content
+                          }
+                        </p>
+                      </div>
+                    ))}
+                    {project.sections.length > 2 && (
+                      <p className="text-xs text-gray-500">+{project.sections.length - 2} more sections</p>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div className="flex items-center space-x-2">
+                      <button 
+                        onClick={() => handleViewProject(project)}
+                        className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="View Project"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleEditProject(project)}
+                        className="p-2 text-gray-400 hover:text-green-600 transition-colors"
+                        title="Edit Project"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => setShowDeleteConfirm(project._id || project.id)}
+                        className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                        title="Delete Project"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <button 
+                      onClick={() => handleViewProject(project)}
+                      className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </motion.div>
         ))}
       </div>
+          )}
 
-      {/* Empty State */}
-      {filteredProjects.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-12"
-        >
-          <FolderOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
-          <p className="text-gray-500 mb-4">Try adjusting your search or filter criteria</p>
-          <button 
-            onClick={handleCreateProject}
-            className="btn-primary"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create New Project
-          </button>
-        </motion.div>
+          {/* Empty State */}
+          {filteredProjects.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12"
+            >
+              <FolderOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
+              <p className="text-gray-500 mb-4">Try adjusting your search or filter criteria</p>
+              <button 
+                onClick={handleCreateProject}
+                className="btn-primary"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create New Project
+              </button>
+            </motion.div>
+          )}
+        </>
       )}
 
       {/* Create/Edit Project Modal */}
@@ -377,7 +369,7 @@ const Projects = () => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {editingProject.id === Date.now() ? 'Create New Project' : 'Edit Project'}
+                  {editingProject._id ? 'Edit Project' : 'Create New Project'}
                 </h2>
                 <button 
                   onClick={() => setShowModal(false)}

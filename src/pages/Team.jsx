@@ -1,24 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit, Trash2, User, X, Save } from 'lucide-react';
+import { Plus, Edit, Trash2, User, X, Save, Loader2 } from 'lucide-react';
+import { teamAPI } from '../utils/api';
 
 const Team = () => {
-  const [teams, setTeams] = useState([
-    {
-      id: 1,
-      quote: "Dr. Shaurya Mohan is a chemical engineer, climate strategist, and clean energy innovator with over 5 years of experience in R&D, industrial consulting, and energy transition planning. As a Ph.D. from ICT Mumbai, her work focuses on developing high-impact, low-cost decarbonization technologies for industries and waste systems.",
-      name: "Dr. Shaurya Mohan",
-      designation: "CEO & Co-Founder, EarthSaathi",
-      src: "/shaurya.jpg",
-    },
-    {
-      id: 2,
-      quote: "Holds a PhD in Chemical Engineering from the Institute of Chemical Technology, Mumbai, India. Focuses on biofuels and carbon capture with in-depth research on Sustainable Aviation Fuel (SAF), renewable diesel, and feedstock markets. Co-holds a patent for an energy-efficient absorbent designed for carbon capture, funded by the Centre of Higher Technology (CHT), Government of India, Delhi. Unique blend of academic knowledge and practical experience positions as a leader in the biofuels sector, driving innovation and sustainability.",
-      name: "Dr. Namrata",
-      designation: "CTO, Co-founder",
-      src: "/placeholder.jpg",
-    },
-  ]);
+  const [teams, setTeams] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState(null);
@@ -28,6 +16,24 @@ const Team = () => {
     quote: '',
     src: '',
   });
+
+  useEffect(() => {
+    fetchTeam();
+  }, []);
+
+  const fetchTeam = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await teamAPI.getAll();
+      setTeams(data);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching team:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddNew = () => {
     setEditingTeam(null);
@@ -51,36 +57,40 @@ const Team = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this team member?')) {
-      setTeams(teams.filter(team => team.id !== id));
+      try {
+        await teamAPI.delete(id);
+        setTeams(teams.filter(team => team._id !== id));
+      } catch (err) {
+        alert('Error deleting team member: ' + err.message);
+      }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingTeam) {
-      // Update existing team
-      setTeams(teams.map(team => 
-        team.id === editingTeam.id 
-          ? { ...team, ...formData }
-          : team
-      ));
-    } else {
-      // Add new team
-      const newTeam = {
-        id: Date.now(),
-        ...formData,
-      };
-      setTeams([...teams, newTeam]);
+    try {
+      let savedMember;
+      if (editingTeam) {
+        savedMember = await teamAPI.update(editingTeam._id, formData);
+        setTeams(teams.map(team => 
+          team._id === editingTeam._id ? savedMember : team
+        ));
+      } else {
+        savedMember = await teamAPI.create(formData);
+        setTeams([...teams, savedMember]);
+      }
+      setIsModalOpen(false);
+      setFormData({
+        name: '',
+        designation: '',
+        quote: '',
+        src: '',
+      });
+    } catch (err) {
+      alert('Error saving team member: ' + err.message);
     }
-    setIsModalOpen(false);
-    setFormData({
-      name: '',
-      designation: '',
-      quote: '',
-      src: '',
-    });
   };
 
   const handleInputChange = (e) => {
@@ -108,11 +118,33 @@ const Team = () => {
         </button>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+          <span className="ml-2 text-gray-600">Loading team members...</span>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-red-800">Error: {error}</p>
+          <button
+            onClick={fetchTeam}
+            className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Team Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {teams.map((team) => (
-          <motion.div
-            key={team.id}
+      {!loading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {teams.map((team) => (
+            <motion.div
+              key={team._id || team.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200"
@@ -140,7 +172,7 @@ const Team = () => {
                   <Edit className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => handleDelete(team.id)}
+                  onClick={() => handleDelete(team._id || team.id)}
                   className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -150,6 +182,7 @@ const Team = () => {
           </motion.div>
         ))}
       </div>
+      )}
 
       {/* Modal */}
       {isModalOpen && (
